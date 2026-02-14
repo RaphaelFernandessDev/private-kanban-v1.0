@@ -1,5 +1,4 @@
-﻿const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("../_supabase");
-const bcrypt = require("bcryptjs");
+const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("../_supabase");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,7 +13,7 @@ module.exports = async function handler(req, res) {
     const nextPassword = String(body.nextPassword || "");
 
     if (!userId || !currentPassword || !nextPassword) {
-      sendJson(res, 400, { error: "Dados invalidos para alteracao de senha." });
+      sendJson(res, 400, { error: "Dados inválidos para alteração de senha." });
       return;
     }
 
@@ -24,32 +23,20 @@ module.exports = async function handler(req, res) {
     const user = Array.isArray(users) ? users[0] : null;
 
     if (!user) {
-      sendJson(res, 404, { error: "Usuario nao encontrado." });
+      sendJson(res, 404, { error: "Usuário não encontrado." });
       return;
     }
 
-    let passwordOk = false;
-    if (user.password_hash === currentPassword) {
-      passwordOk = true;
-    } else {
-      try {
-        passwordOk = await bcrypt.compare(currentPassword, user.password_hash);
-      } catch {
-        passwordOk = false;
-      }
-    }
-
-    if (!passwordOk) {
+    if (user.password_hash !== currentPassword) {
       sendJson(res, 401, { error: "Senha atual incorreta." });
       return;
     }
 
-    const nextHash = await bcrypt.hash(nextPassword, 10);
     const updated = await supabaseRequest(
       `/users?id=eq.${encodeFilterValue(userId)}`,
       {
         method: "PATCH",
-        body: { password_hash: nextHash },
+        body: { password_hash: nextPassword },
       }
     );
 
@@ -58,3 +45,4 @@ module.exports = async function handler(req, res) {
     sendJson(res, 500, { error: error instanceof Error ? error.message : "Erro interno." });
   }
 };
+
