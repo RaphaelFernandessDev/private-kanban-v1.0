@@ -218,7 +218,7 @@ async function onLoginSubmit(event) {
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao autenticar.";
-      if (message === "Login ou senha inválidos.") {
+      if (message === "Login ou senha inválidos." || message === "Login ou senha invalidos.") {
         elements.loginError.textContent = message;
         return;
       }
