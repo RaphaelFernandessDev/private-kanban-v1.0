@@ -1,5 +1,5 @@
 <h1 align="center">
-  🗂️ Private Kanban
+  🗂️ Private Kanban v1.0
 </h1>
 
 <p align="center">
