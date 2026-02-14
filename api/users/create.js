@@ -1,5 +1,4 @@
-﻿const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("../_supabase");
-const bcrypt = require("bcryptjs");
+const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("../_supabase");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,7 +17,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!/^[a-zA-Z0-9._-]+$/.test(username) || !/^[a-zA-Z0-9._-]+$/.test(password)) {
-      sendJson(res, 400, { error: "Use apenas letras, numeros, ponto, traco ou underline." });
+      sendJson(res, 400, { error: "Use apenas letras, números, ponto, traço ou underline." });
       return;
     }
 
@@ -26,14 +25,13 @@ module.exports = async function handler(req, res) {
       `/users?select=id&username=eq.${encodeFilterValue(username)}&limit=1`
     );
     if (Array.isArray(exists) && exists.length) {
-      sendJson(res, 409, { error: "Este login ja existe." });
+      sendJson(res, 409, { error: "Este login já existe." });
       return;
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
     const created = await supabaseRequest("/users", {
       method: "POST",
-      body: [{ username, password_hash: passwordHash, role: "user" }],
+      body: [{ username, password_hash: password, role: "user" }],
     });
 
     sendJson(res, 201, { user: Array.isArray(created) ? created[0] : null });
@@ -41,3 +39,4 @@ module.exports = async function handler(req, res) {
     sendJson(res, 500, { error: error instanceof Error ? error.message : "Erro interno." });
   }
 };
+

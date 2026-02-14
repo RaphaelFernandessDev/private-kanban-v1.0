@@ -1,5 +1,4 @@
-﻿const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("./_supabase");
-const bcrypt = require("bcryptjs");
+const { encodeFilterValue, readBody, sendJson, supabaseRequest } = require("./_supabase");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
@@ -22,9 +21,8 @@ module.exports = async function handler(req, res) {
     );
     const user = Array.isArray(users) ? users[0] : null;
 
-    const passwordOk = user ? await bcrypt.compare(password, user.password_hash) : false;
-    if (!user || !passwordOk) {
-      sendJson(res, 401, { error: "Login ou senha invalidos." });
+    if (!user || user.password_hash !== password) {
+      sendJson(res, 401, { error: "Login ou senha inválidos." });
       return;
     }
 
@@ -51,3 +49,4 @@ module.exports = async function handler(req, res) {
     sendJson(res, 500, { error: error instanceof Error ? error.message : "Erro interno." });
   }
 };
+

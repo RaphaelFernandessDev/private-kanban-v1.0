@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "private-kanban-v1.0",
   "private": true,
   "version": "1.0.0",
@@ -6,3 +6,4 @@
     "bcryptjs": "^2.4.3"
   }
 }
+
