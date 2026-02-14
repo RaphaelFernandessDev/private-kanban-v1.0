@@ -138,6 +138,7 @@ function bindEvents() {
   document.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("storage", onStorageEvent);
   window.addEventListener("beforeunload", onBeforeUnload);
+  window.addEventListener("pagehide", onPageHide);
   window.addEventListener("resize", onDatePickerViewportChange);
   window.addEventListener("scroll", onDatePickerViewportChange, true);
   elements.logoutButton?.addEventListener("click", logout);
@@ -1045,6 +1046,11 @@ function onStorageEvent(event) {
 
 /// funcao onBeforeUnload. ///
 function onBeforeUnload() {
+  stopPresenceTracking(true);
+}
+
+/// funcao onPageHide. ///
+function onPageHide() {
   stopPresenceTracking(true);
 }
 
