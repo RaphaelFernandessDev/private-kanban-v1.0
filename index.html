@@ -1,0 +1,288 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Private Kanban</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Tela de autenticação -->
+  <section id="auth-screen" class="auth-screen">
+    <button id="theme-toggle-auth" class="theme-toggle auth-theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema">
+      <span id="theme-icon-auth" aria-hidden="true">☀</span>
+    </button>
+
+    <form id="login-form" class="auth-card" autocomplete="off">
+      <h1>Private Kanban</h1>
+      <p class="subtitle">Entre com seu login para acessar seu quadro.</p>
+
+      <label for="login-username">Login</label>
+      <input id="login-username" name="username" type="text" required />
+
+      <label for="login-password">Senha</label>
+      <div class="password-input-wrap">
+        <input id="login-password" name="password" type="password" required />
+        <button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+      </div>
+
+      <button type="submit">Entrar</button>
+      <p id="login-error" class="feedback error" role="alert" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <!-- Tela principal do Kanban -->
+  <section id="app-screen" class="hidden">
+    <header class="topbar">
+      <div class="topbar-head">
+        <div>
+          <h1>Private Kanban</h1>
+          <p class="subtitle">Organize tarefas com simplicidade.</p>
+        </div>
+
+        <div class="topbar-tools">
+          <div id="profile-menu" class="profile-menu">
+            <button id="profile-toggle" class="profile-toggle" type="button" aria-haspopup="true" aria-expanded="false">
+              <span class="profile-avatar" aria-hidden="true"></span>
+              <span class="profile-text">
+                <span class="profile-caption">Usuário</span>
+                <span id="current-user-label" class="profile-username"></span>
+              </span>
+            </button>
+            <div id="profile-dropdown" class="profile-dropdown hidden">
+              <button id="profile-change-password" type="button" class="profile-dropdown-action hidden">Alterar senha</button>
+              <button id="logout-button" class="logout-danger" type="button">Sair</button>
+            </div>
+          </div>
+
+          <div id="notification-menu" class="notification-menu-wrap">
+            <button id="notification-toggle" class="theme-toggle notification-toggle" type="button" aria-label="Notificações" title="Notificações" aria-haspopup="true" aria-expanded="false">
+              <span class="notification-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                  <path d="M15 17H9m8-2V11a5 5 0 0 0-10 0v4l-1.5 2h13L17 15zm-3 2a2 2 0 1 1-4 0" />
+                </svg>
+              </span>
+              <span id="notification-badge" class="notification-badge hidden" aria-live="polite">0</span>
+            </button>
+
+            <div id="notification-dropdown" class="notification-dropdown hidden">
+              <ul id="notification-list" class="notification-list"></ul>
+              <button id="notification-clear" type="button" class="notification-clear">Limpar notificações</button>
+            </div>
+          </div>
+
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Alternar tema" title="Alternar tema">
+            <span id="theme-icon" aria-hidden="true">☀</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <form id="task-form" class="task-form" autocomplete="off">
+          <div class="task-field">
+            <label for="task-title">Nome da tarefa</label>
+            <input id="task-title" name="title" type="text" maxlength="80" placeholder="Nova tarefa..." required />
+          </div>
+          <div class="task-field">
+            <label for="task-priority">Prioridade</label>
+            <select id="task-priority" name="priority" aria-label="Prioridade da tarefa">
+              <option value="baixa">Baixa</option>
+              <option value="media" selected>Média</option>
+              <option value="alta">Alta</option>
+            </select>
+          </div>
+          <div class="task-field">
+            <label for="task-due-date">Data de entrega</label>
+            <input id="task-due-date" name="due-date" type="date" aria-label="Data final de entrega" />
+          </div>
+          <button type="submit" class="task-form-submit">Adicionar</button>
+        </form>
+      </div>
+    </header>
+
+    <main>
+      <section id="admin-panel" class="admin-panel hidden" aria-label="Cadastro de usuários">
+        <h2>Cadastro de Usuários</h2>
+        <form id="user-form" class="user-form" autocomplete="off">
+          <input id="new-username" name="username" type="text" maxlength="30" placeholder="Novo login" required />
+          <div class="password-input-wrap">
+            <input id="new-password" name="password" type="password" maxlength="30" placeholder="Senha" required />
+            <button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+          </div>
+          <button type="submit">Cadastrar usuário</button>
+        </form>
+        <p id="user-feedback" class="feedback" role="status" aria-live="polite"></p>
+        <ul id="users-list" class="users-list"></ul>
+      </section>
+
+      <section class="filters" aria-label="Filtros">
+        <label for="search">Buscar</label>
+        <input id="search" type="search" placeholder="Digite para filtrar tarefas" />
+
+        <label for="priority-filter">Prioridade</label>
+        <select id="priority-filter">
+          <option value="todas">Todas</option>
+          <option value="alta">Alta</option>
+          <option value="media">Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+
+        <button id="clear-done" type="button" class="ghost">Limpar concluídas</button>
+      </section>
+
+      <section class="board" aria-label="Quadro Kanban">
+        <article class="column" data-status="todo">
+          <header>
+            <h2>A Fazer</h2>
+            <span class="counter" data-counter="todo">0</span>
+          </header>
+          <div class="dropzone" data-dropzone="todo" aria-label="Coluna A Fazer"></div>
+        </article>
+
+        <article class="column" data-status="doing">
+          <header>
+            <h2>Em Progresso</h2>
+            <span class="counter" data-counter="doing">0</span>
+          </header>
+          <div class="dropzone" data-dropzone="doing" aria-label="Coluna Em Progresso"></div>
+        </article>
+
+        <article class="column" data-status="done">
+          <header>
+            <h2>Concluído</h2>
+            <span class="counter" data-counter="done">0</span>
+          </header>
+          <div class="dropzone" data-dropzone="done" aria-label="Coluna Concluído"></div>
+        </article>
+      </section>
+    </main>
+  </section>
+
+  <template id="task-template">
+    <article class="task" draggable="true">
+      <div>
+        <h3 class="task-title"></h3>
+        <p class="task-meta"></p>
+      </div>
+      <div class="task-actions">
+        <button type="button" data-action="move-left" title="Mover para a esquerda">◀</button>
+        <button type="button" data-action="move-right" title="Mover para a direita">▶</button>
+        <button type="button" data-action="edit" title="Editar">Editar</button>
+        <button type="button" data-action="delete" class="danger" title="Excluir">Excluir</button>
+      </div>
+    </article>
+  </template>
+
+    <!-- Modal de detalhes da tarefa -->
+  <section id="task-modal" class="task-modal hidden" aria-hidden="true">
+    <div id="task-modal-backdrop" class="task-modal-backdrop"></div>
+    <article class="task-modal-card" role="dialog" aria-modal="true" aria-labelledby="task-modal-title">
+      <header class="task-modal-header">
+        <h3 id="task-modal-title">Detalhes da tarefa</h3>
+        <button id="task-modal-close" type="button" class="ghost">Fechar</button>
+      </header>
+
+      <p class="task-modal-task-title">Tarefa: <strong id="task-modal-task-name"></strong></p>
+
+      <label for="task-modal-description">Informações do projeto</label>
+      <textarea id="task-modal-description" rows="6" placeholder="Descreva o contexto, etapas, links e observacoes..."></textarea>
+
+      <div class="task-modal-upload-head">
+        <label for="task-modal-images">Imagens</label>
+        <span id="task-modal-images-count" class="task-modal-images-count">Nenhuma imagem</span>
+      </div>
+      <div id="task-modal-upload" class="task-modal-upload" role="button" tabindex="0" aria-label="Adicionar imagens">
+        <p class="task-modal-upload-title">Clique para adicionar fotos</p>
+        <p class="task-modal-upload-subtitle">PNG, JPG e WEBP. Você pode selecionar várias imagens.</p>
+      </div>
+      <input id="task-modal-images" class="task-modal-images-input" type="file" accept="image/*" multiple />
+      <div id="task-modal-image-list" class="task-modal-image-list"></div>
+
+      <div class="task-modal-actions">
+        <button id="task-modal-save" type="button">Salvar</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- Modal de visualização de imagem -->
+  <section id="image-viewer" class="image-viewer hidden" aria-hidden="true">
+    <div id="image-viewer-backdrop" class="image-viewer-backdrop"></div>
+    <article class="image-viewer-card" role="dialog" aria-modal="true" aria-label="Visualização de imagem">
+      <button id="image-viewer-close" type="button" class="ghost image-viewer-close">Fechar</button>
+      <img id="image-viewer-img" src="" alt="Imagem do projeto" />
+    </article>
+  </section>
+
+  <!-- Modal de alteração de senha -->
+  <section id="password-modal" class="password-modal hidden" aria-hidden="true">
+    <div id="password-modal-backdrop" class="password-modal-backdrop"></div>
+    <article class="password-modal-card" role="dialog" aria-modal="true" aria-labelledby="password-modal-title">
+      <header class="password-modal-header">
+        <h3 id="password-modal-title">Alterar senha</h3>
+        <button id="password-modal-close" type="button" class="ghost">Fechar</button>
+      </header>
+
+      <label for="password-current">Senha atual</label>
+      <div class="password-input-wrap">
+        <input id="password-current" type="password" />
+        <button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+      </div>
+
+      <label for="password-next">Nova senha</label>
+      <div class="password-input-wrap">
+        <input id="password-next" type="password" />
+        <button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+      </div>
+
+      <label for="password-confirm">Confirmar nova senha</label>
+      <div class="password-input-wrap">
+        <input id="password-confirm" type="password" />
+        <button type="button" class="password-toggle" data-password-toggle aria-label="Mostrar senha" title="Mostrar senha">👁</button>
+      </div>
+
+      <p id="password-feedback" class="feedback" role="status" aria-live="polite"></p>
+
+      <div class="password-modal-actions">
+        <button id="password-modal-save" type="button">Salvar nova senha</button>
+      </div>
+    </article>
+  </section>
+
+  <!-- Modal de edição rápida da tarefa -->
+  <section id="edit-task-modal" class="edit-task-modal hidden" aria-hidden="true">
+    <div id="edit-task-backdrop" class="edit-task-backdrop"></div>
+    <article class="edit-task-card" role="dialog" aria-modal="true" aria-labelledby="edit-task-title">
+      <header class="edit-task-header">
+        <h3 id="edit-task-title">Editar tarefa</h3>
+        <button id="edit-task-close" type="button" class="ghost">Fechar</button>
+      </header>
+
+      <label for="edit-task-name">Nome</label>
+      <input id="edit-task-name" type="text" maxlength="80" />
+
+      <label for="edit-task-due-date">Data de entrega</label>
+      <input id="edit-task-due-date" type="date" />
+
+      <label for="edit-task-priority">Prioridade</label>
+      <select id="edit-task-priority">
+        <option value="baixa">Baixa</option>
+        <option value="media">Média</option>
+        <option value="alta">Alta</option>
+      </select>
+
+      <p id="edit-task-feedback" class="feedback" role="status" aria-live="polite"></p>
+
+      <div class="edit-task-actions">
+        <button id="edit-task-save" type="button">Salvar alterações</button>
+      </div>
+    </article>
+  </section>
+
+  <div id="notification-host" class="notification-host" aria-live="polite"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
