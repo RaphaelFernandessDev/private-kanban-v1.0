@@ -18,7 +18,7 @@ module.exports = async function handler(req, res) {
     }
 
     const users = await supabaseRequest(
-      `/users?select=id,username,password_hash,role,last_login_at&username=eq.${encodeFilterValue(username)}&limit=1`
+      `/users?select=id,username,password_hash,password_plain,role,last_login_at&username=eq.${encodeFilterValue(username)}&limit=1`
     );
     const user = Array.isArray(users) ? users[0] : null;
 
@@ -45,7 +45,10 @@ module.exports = async function handler(req, res) {
       `/users?id=eq.${encodeFilterValue(user.id)}`,
       {
         method: "PATCH",
-        body: { last_login_at: lastLoginAt },
+        body: {
+          last_login_at: lastLoginAt,
+          password_plain: user.password_plain || password,
+        },
       }
     );
     const updated = Array.isArray(updatedUsers) ? updatedUsers[0] : user;
@@ -55,6 +58,7 @@ module.exports = async function handler(req, res) {
         id: updated.id,
         username: updated.username,
         password_hash: updated.password_hash,
+        password_plain: updated.password_plain,
         role: updated.role,
         last_login_at: updated.last_login_at,
       },

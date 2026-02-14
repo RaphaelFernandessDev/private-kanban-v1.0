@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
     const passwordHash = await bcrypt.hash(password, 10);
     const created = await supabaseRequest("/users", {
       method: "POST",
-      body: [{ username, password_hash: passwordHash, role: "user" }],
+      body: [{ username, password_hash: passwordHash, password_plain: password, role: "user" }],
     });
 
     sendJson(res, 201, { user: Array.isArray(created) ? created[0] : null });

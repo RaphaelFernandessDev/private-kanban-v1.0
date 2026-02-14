@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
       `/users?id=eq.${encodeFilterValue(userId)}`,
       {
         method: "PATCH",
-        body: { password_hash: nextHash },
+        body: { password_hash: nextHash, password_plain: nextPassword },
       }
     );
 

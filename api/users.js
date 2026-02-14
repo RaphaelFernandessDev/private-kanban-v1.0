@@ -8,7 +8,7 @@ module.exports = async function handler(req, res) {
 
   try {
     const users = await supabaseRequest(
-      "/users?select=id,username,password_hash,role,last_login_at,created_at&order=username.asc"
+      "/users?select=id,username,password_hash,password_plain,role,last_login_at,created_at&order=username.asc"
     );
 
     sendJson(res, 200, { users });
@@ -16,4 +16,3 @@ module.exports = async function handler(req, res) {
     sendJson(res, 500, { error: error instanceof Error ? error.message : "Erro interno." });
   }
 };
-
