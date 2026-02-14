@@ -1,4 +1,4 @@
-﻿<h1 align="center">🚀 Private Kanban</h1>
+﻿<h1 align="center">🚀 Private Kanban v1.0</h1>
 
 <p align="center">
   <strong>Sistema Fullstack de Gestão de Tarefas com Controle Administrativo</strong>
