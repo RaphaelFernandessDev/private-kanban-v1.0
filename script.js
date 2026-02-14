@@ -386,7 +386,7 @@ function renderUsersList() {
       const statusLabel = document.createElement("span");
       const accessLabel = document.createElement("span");
       const action = document.createElement("button");
-      const online = isUserOnline(user.id);
+      const online = isUserOnline(user.id, user.lastLoginAt);
 
       info.className = "user-credentials";
       loginLabel.textContent = `Login: ${user.username}${user.role === "admin" ? " (Admin)" : ""}`;
@@ -829,7 +829,21 @@ function stopPresenceTracking(removeCurrent) {
     presenceHeartbeatId = null;
   }
 
-  if (removeCurrent && currentUser) {
+  if (!currentUser) {
+    return;
+  }
+
+  if (isRemoteUsersEnabled()) {
+    if (removeCurrent) {
+      requestApi("/api/presence", {
+        method: "POST",
+        body: { userId: currentUser.id, offline: true },
+      }).catch(() => {});
+    }
+    return;
+  }
+
+  if (removeCurrent) {
     delete presenceState[currentUser.id];
     persistPresenceState();
   }
@@ -838,6 +852,14 @@ function stopPresenceTracking(removeCurrent) {
 /// funcao updateCurrentPresence. ///
 function updateCurrentPresence() {
   if (!currentUser) {
+    return;
+  }
+
+  if (isRemoteUsersEnabled()) {
+    requestApi("/api/presence", {
+      method: "POST",
+      body: { userId: currentUser.id },
+    }).catch(() => {});
     return;
   }
 
@@ -853,8 +875,14 @@ function startAdminRealtimeRefresh() {
   stopAdminRealtimeRefresh();
   adminRealtimeId = window.setInterval(() => {
     if (currentUser?.role === "admin") {
-      presenceState = loadPresenceState();
-      renderUsersList();
+      if (isRemoteUsersEnabled()) {
+        refreshUsersFromApi().then(() => {
+          renderUsersList();
+        }).catch(() => {});
+      } else {
+        presenceState = loadPresenceState();
+        renderUsersList();
+      }
     }
   }, 5000);
 }
@@ -868,7 +896,20 @@ function stopAdminRealtimeRefresh() {
 }
 
 /// funcao isUserOnline. ///
-function isUserOnline(userId) {
+function isUserOnline(userId, lastSeenRemote) {
+  if (isRemoteUsersEnabled()) {
+    if (!lastSeenRemote) {
+      return false;
+    }
+
+    const timestamp = Date.parse(lastSeenRemote);
+    if (Number.isNaN(timestamp)) {
+      return false;
+    }
+
+    return Date.now() - timestamp <= ONLINE_WINDOW_MS;
+  }
+
   const entry = presenceState[userId];
   if (!entry || typeof entry.lastSeen !== "number") {
     return false;
