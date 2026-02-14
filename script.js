@@ -886,10 +886,7 @@ function stopPresenceTracking(removeCurrent) {
 
   if (isRemoteUsersEnabled()) {
     if (removeCurrent) {
-      requestApi("/api/presence", {
-        method: "POST",
-        body: { userId: currentUser.id, offline: true },
-      }).catch(() => {});
+      sendPresenceOnExit(currentUser.id);
     }
     return;
   }
@@ -898,6 +895,26 @@ function stopPresenceTracking(removeCurrent) {
     delete presenceState[currentUser.id];
     persistPresenceState();
   }
+}
+
+/// funcao sendPresenceOnExit. ///
+function sendPresenceOnExit(userId) {
+  const payload = JSON.stringify({ userId, offline: true });
+
+  if (navigator.sendBeacon) {
+    const blob = new Blob([payload], { type: "application/json" });
+    navigator.sendBeacon("/api/presence", blob);
+    return;
+  }
+
+  fetch("/api/presence", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: payload,
+    keepalive: true,
+  }).catch(() => {});
 }
 
 /// funcao updateCurrentPresence. ///
