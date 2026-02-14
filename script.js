@@ -252,6 +252,11 @@ function startSession(user) {
   }
   currentUser = users.find((item) => item.id === user.id) || user;
   tasks = loadTasksByUser(user.id);
+  if (isRemoteUsersEnabled()) {
+    refreshTasksFromApi(user.id).then(() => {
+      render();
+    }).catch(() => {});
+  }
   dismissedNotifications = new Set();
   currentNotifications = [];
   startPresenceTracking();
@@ -264,6 +269,11 @@ function startSession(user) {
     elements.adminPanel.classList.remove("hidden");
     elements.profileChangePassword?.classList.remove("hidden");
     renderUsersList();
+    if (isRemoteUsersEnabled()) {
+      refreshUserEventsFromApi().then(() => {
+        updateNotificationCenter();
+      }).catch(() => {});
+    }
     startAdminRealtimeRefresh();
   } else {
     elements.adminPanel.classList.add("hidden");
@@ -771,6 +781,38 @@ function persistUserEvents() {
   localStorage.setItem(USER_EVENTS_KEY, JSON.stringify(userEvents));
 }
 
+/// funcao refreshUserEventsFromApi. ///
+async function refreshUserEventsFromApi() {
+  if (!isRemoteUsersEnabled() || currentUser?.role !== "admin") {
+    return false;
+  }
+
+  try {
+    const data = await requestApi("/api/user-events");
+    const list = Array.isArray(data?.events) ? data.events : [];
+    userEvents = list
+      .filter((event) => (
+        event
+        && typeof event.id === "string"
+        && typeof event.type === "string"
+        && typeof event.user_id === "string"
+        && typeof event.username === "string"
+      ))
+      .map((event) => ({
+        id: event.id,
+        type: event.type,
+        userId: event.user_id,
+        username: event.username,
+        timestamp: Number(event.timestamp) || Date.now(),
+      }));
+
+    persistUserEvents();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /// funcao loadDismissedUserEventNotifications. ///
 function loadDismissedUserEventNotifications() {
   try {
@@ -885,9 +927,12 @@ function startAdminRealtimeRefresh() {
   adminRealtimeId = window.setInterval(() => {
     if (currentUser?.role === "admin") {
       if (isRemoteUsersEnabled()) {
-        refreshUsersFromApi().then(() => {
-          renderUsersList();
-        }).catch(() => {});
+        Promise.all([refreshUsersFromApi(), refreshUserEventsFromApi()])
+          .then(() => {
+            renderUsersList();
+            updateNotificationCenter();
+          })
+          .catch(() => {});
       } else {
         presenceState = loadPresenceState();
         renderUsersList();
@@ -1026,6 +1071,12 @@ function persistTasks() {
   }
 
   localStorage.setItem(getTasksKey(currentUser.id), JSON.stringify(tasks));
+  if (isRemoteUsersEnabled()) {
+    requestApi("/api/tasks", {
+      method: "POST",
+      body: { userId: currentUser.id, tasks },
+    }).catch(() => {});
+  }
 }
 
 /// funcao getTasksKey. ///
@@ -2156,14 +2207,23 @@ function addUserPasswordChangeEvent(user) {
     return;
   }
 
-  userEvents.push({
+  const eventPayload = {
     id: crypto.randomUUID(),
     type: "password_changed",
     userId: user.id,
     username: user.username,
     timestamp: Date.now(),
-  });
+  };
+
+  userEvents.push(eventPayload);
   persistUserEvents();
+
+  if (isRemoteUsersEnabled()) {
+    requestApi("/api/user-events/create", {
+      method: "POST",
+      body: eventPayload,
+    }).catch(() => {});
+  }
 }
 
 /// funcao closeProfileMenu. ///
@@ -2251,6 +2311,40 @@ function mapApiUser(user) {
     role: user.role,
     lastLoginAt: user.last_login_at ?? user.lastLoginAt ?? null,
   };
+}
+
+/// funcao refreshTasksFromApi. ///
+async function refreshTasksFromApi(userId = currentUser?.id) {
+  if (!isRemoteUsersEnabled() || !userId) {
+    return false;
+  }
+
+  try {
+    const data = await requestApi(`/api/tasks?userId=${encodeURIComponent(userId)}`);
+    const list = Array.isArray(data?.tasks) ? data.tasks : [];
+    tasks = list
+      .filter((task) => (
+        task
+        && typeof task.id === "string"
+        && typeof task.title === "string"
+        && STATUSES.includes(task.status)
+        && ["alta", "media", "baixa"].includes(task.priority)
+      ))
+      .map((task) => ({
+        id: task.id,
+        title: task.title,
+        priority: task.priority,
+        dueDate: task.due_date ?? null,
+        details: typeof task.details === "string" ? task.details : "",
+        images: Array.isArray(task.images) ? task.images.filter((image) => typeof image === "string") : [],
+        status: task.status,
+        createdAt: typeof task.created_at === "string" ? task.created_at : new Date().toISOString(),
+      }));
+    localStorage.setItem(getTasksKey(userId), JSON.stringify(tasks));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /// funcao refreshUsersFromApi. ///
