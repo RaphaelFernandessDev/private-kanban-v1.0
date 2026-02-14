@@ -98,6 +98,10 @@ let currentNotifications = [];
 let presenceState = loadPresenceState();
 let presenceHeartbeatId = null;
 let adminRealtimeId = null;
+let datePickerElement = null;
+let activeDatePickerInput = null;
+let datePickerYear = 0;
+let datePickerMonth = 0;
 
 boot();
 
@@ -106,6 +110,7 @@ async function boot() {
   ensureAdminUser();
   initializeTheme();
   initializePasswordToggles();
+  initializeCustomDatePicker();
   bindEvents();
   await refreshUsersFromApi();
 
@@ -133,6 +138,8 @@ function bindEvents() {
   document.addEventListener("keydown", onGlobalKeydown);
   window.addEventListener("storage", onStorageEvent);
   window.addEventListener("beforeunload", onBeforeUnload);
+  window.addEventListener("resize", onDatePickerViewportChange);
+  window.addEventListener("scroll", onDatePickerViewportChange, true);
   elements.logoutButton?.addEventListener("click", logout);
   elements.userForm?.addEventListener("submit", onCreateUser);
   elements.taskModalClose?.addEventListener("click", closeTaskModal);
@@ -283,6 +290,7 @@ function logout() {
   closeTaskModal();
   closePasswordModal();
   closeEditTaskModal();
+  closeDatePicker();
   clearTaskColumns();
   elements.loginForm.reset();
   elements.loginError.textContent = "";
@@ -298,6 +306,7 @@ function showAuth() {
   closeTaskModal();
   closePasswordModal();
   closeEditTaskModal();
+  closeDatePicker();
   stopAdminRealtimeRefresh();
 }
 
@@ -461,7 +470,7 @@ function onTaskSubmit(event) {
 
   const title = elements.titleInput.value.trim();
   const priority = elements.priorityInput.value;
-  const dueDate = elements.dueDateInput.value || null;
+  const dueDate = getDateInputIso(elements.dueDateInput);
   if (!title) {
     return;
   }
@@ -478,7 +487,7 @@ function onTaskSubmit(event) {
   });
 
   elements.titleInput.value = "";
-  elements.dueDateInput.value = "";
+  setDateInputIso(elements.dueDateInput, null);
   persistTasks();
   render();
 }
@@ -1030,6 +1039,331 @@ function setUserFeedback(message, isError) {
   elements.userFeedback.classList.toggle("error", Boolean(isError));
 }
 
+/// funcao initializeCustomDatePicker. ///
+function initializeCustomDatePicker() {
+  const dateInputs = [elements.dueDateInput, elements.editTaskDueDate].filter(Boolean);
+  if (!dateInputs.length) {
+    return;
+  }
+
+  dateInputs.forEach((input) => {
+    const iso = normalizeIsoDate(input.value);
+    setDateInputIso(input, iso);
+
+    input.addEventListener("click", () => {
+      openDatePicker(input);
+    });
+
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
+        event.preventDefault();
+        openDatePicker(input);
+      }
+    });
+  });
+}
+
+/// funcao ensureDatePickerElement. ///
+function ensureDatePickerElement() {
+  if (datePickerElement) {
+    return datePickerElement;
+  }
+
+  const picker = document.createElement("section");
+  picker.className = "date-picker hidden";
+  picker.setAttribute("aria-hidden", "true");
+  picker.innerHTML = `
+    <div class="date-picker-header">
+      <button type="button" class="date-picker-nav" data-dp-action="prev" aria-label="Mês anterior">◀</button>
+      <strong class="date-picker-title" data-dp="title"></strong>
+      <button type="button" class="date-picker-nav" data-dp-action="next" aria-label="Próximo mês">▶</button>
+    </div>
+    <div class="date-picker-weekdays" data-dp="weekdays"></div>
+    <div class="date-picker-grid" data-dp="grid"></div>
+    <div class="date-picker-actions">
+      <button type="button" class="date-picker-action" data-dp-action="clear">Limpar</button>
+      <button type="button" class="date-picker-action" data-dp-action="today">Hoje</button>
+    </div>
+  `;
+
+  picker.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) {
+      return;
+    }
+
+    const action = target.dataset.dpAction;
+    if (action === "prev") {
+      datePickerMonth -= 1;
+      if (datePickerMonth < 0) {
+        datePickerMonth = 11;
+        datePickerYear -= 1;
+      }
+      renderDatePicker();
+      return;
+    }
+
+    if (action === "next") {
+      datePickerMonth += 1;
+      if (datePickerMonth > 11) {
+        datePickerMonth = 0;
+        datePickerYear += 1;
+      }
+      renderDatePicker();
+      return;
+    }
+
+    if (action === "clear") {
+      if (activeDatePickerInput) {
+        setDateInputIso(activeDatePickerInput, null);
+      }
+      closeDatePicker();
+      return;
+    }
+
+    if (action === "today") {
+      if (activeDatePickerInput) {
+        setDateInputIso(activeDatePickerInput, toIsoDate(new Date()));
+      }
+      closeDatePicker();
+      return;
+    }
+
+    const dayValue = target.dataset.dpDay;
+    if (!dayValue || !activeDatePickerInput) {
+      return;
+    }
+
+    setDateInputIso(activeDatePickerInput, dayValue);
+    closeDatePicker();
+  });
+
+  document.body.appendChild(picker);
+  datePickerElement = picker;
+  return picker;
+}
+
+/// funcao openDatePicker. ///
+function openDatePicker(input) {
+  const picker = ensureDatePickerElement();
+  activeDatePickerInput = input;
+
+  const selectedIso = getDateInputIso(input);
+  const base = selectedIso ? parseIsoDate(selectedIso) : new Date();
+  datePickerYear = base.getFullYear();
+  datePickerMonth = base.getMonth();
+
+  picker.classList.remove("hidden");
+  picker.setAttribute("aria-hidden", "false");
+  renderDatePicker();
+  positionDatePicker(input);
+}
+
+/// funcao closeDatePicker. ///
+function closeDatePicker() {
+  if (!datePickerElement) {
+    return;
+  }
+
+  datePickerElement.classList.add("hidden");
+  datePickerElement.setAttribute("aria-hidden", "true");
+  activeDatePickerInput = null;
+}
+
+/// funcao positionDatePicker. ///
+function positionDatePicker(input) {
+  if (!datePickerElement) {
+    return;
+  }
+
+  const rect = input.getBoundingClientRect();
+  const scrollX = window.scrollX || window.pageXOffset;
+  const scrollY = window.scrollY || window.pageYOffset;
+  const desiredLeft = rect.left + scrollX;
+  const maxLeft = Math.max(8, scrollX + window.innerWidth - 300);
+  const left = Math.min(Math.max(8, desiredLeft), maxLeft);
+  const top = rect.bottom + scrollY + 8;
+
+  datePickerElement.style.left = `${left}px`;
+  datePickerElement.style.top = `${top}px`;
+}
+
+/// funcao onDatePickerViewportChange. ///
+function onDatePickerViewportChange() {
+  if (!datePickerElement || datePickerElement.classList.contains("hidden") || !activeDatePickerInput) {
+    return;
+  }
+
+  positionDatePicker(activeDatePickerInput);
+}
+
+/// funcao renderDatePicker. ///
+function renderDatePicker() {
+  if (!datePickerElement) {
+    return;
+  }
+
+  const title = datePickerElement.querySelector('[data-dp="title"]');
+  const weekdays = datePickerElement.querySelector('[data-dp="weekdays"]');
+  const grid = datePickerElement.querySelector('[data-dp="grid"]');
+  if (!title || !weekdays || !grid) {
+    return;
+  }
+
+  const monthLabel = new Date(datePickerYear, datePickerMonth, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+  title.textContent = monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1);
+
+  weekdays.innerHTML = "";
+  ["D", "S", "T", "Q", "Q", "S", "S"].forEach((name) => {
+    const label = document.createElement("span");
+    label.textContent = name;
+    weekdays.appendChild(label);
+  });
+
+  grid.innerHTML = "";
+  const firstDay = new Date(datePickerYear, datePickerMonth, 1);
+  const startOffset = firstDay.getDay();
+  const selectedIso = activeDatePickerInput ? getDateInputIso(activeDatePickerInput) : null;
+  const todayIso = toIsoDate(new Date());
+
+  for (let cell = 0; cell < 42; cell += 1) {
+    const dayNumber = cell - startOffset + 1;
+    const date = new Date(datePickerYear, datePickerMonth, dayNumber);
+    const iso = toIsoDate(date);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "date-picker-day";
+    button.dataset.dpDay = iso;
+    button.textContent = String(date.getDate());
+
+    if (date.getMonth() !== datePickerMonth) {
+      button.classList.add("outside");
+    }
+
+    if (iso === selectedIso) {
+      button.classList.add("selected");
+    }
+
+    if (iso === todayIso) {
+      button.classList.add("today");
+    }
+
+    grid.appendChild(button);
+  }
+}
+
+/// funcao getDateInputIso. ///
+function getDateInputIso(input) {
+  if (!input) {
+    return null;
+  }
+
+  const raw = (input.dataset.iso || "").trim();
+  if (normalizeIsoDate(raw)) {
+    return raw;
+  }
+
+  const fromDisplay = parseDisplayDate(input.value);
+  return fromDisplay;
+}
+
+/// funcao setDateInputIso. ///
+function setDateInputIso(input, isoDate) {
+  if (!input) {
+    return;
+  }
+
+  const iso = normalizeIsoDate(isoDate);
+  if (!iso) {
+    input.dataset.iso = "";
+    input.value = "";
+    return;
+  }
+
+  input.dataset.iso = iso;
+  input.value = formatIsoToDisplay(iso);
+}
+
+/// funcao normalizeIsoDate. ///
+function normalizeIsoDate(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return null;
+  }
+
+  const date = parseIsoDate(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/// funcao parseDisplayDate. ///
+function parseDisplayDate(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  const parts = trimmed.split("/");
+  if (parts.length !== 3) {
+    return null;
+  }
+
+  const [day, month, year] = parts.map((item) => Number(item));
+  if (!day || !month || !year) {
+    return null;
+  }
+
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime())
+    || date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+
+  return toIsoDate(date);
+}
+
+/// funcao parseIsoDate. ///
+function parseIsoDate(value) {
+  return new Date(`${value}T00:00:00`);
+}
+
+/// funcao toIsoDate. ///
+function toIsoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/// funcao formatIsoToDisplay. ///
+function formatIsoToDisplay(value) {
+  const date = parseIsoDate(value);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 /// funcao isValidCredential. ///
 function isValidCredential(value) {
   return /^[a-zA-Z0-9._-]+$/.test(value);
@@ -1326,6 +1660,11 @@ function onGlobalKeydown(event) {
     return;
   }
 
+  if (datePickerElement && !datePickerElement.classList.contains("hidden")) {
+    closeDatePicker();
+    return;
+  }
+
   if (elements.notificationDropdown && !elements.notificationDropdown.classList.contains("hidden")) {
     closeNotificationMenu();
     return;
@@ -1483,7 +1822,7 @@ function openEditTaskModal(taskId) {
 
   activeEditTaskId = task.id;
   elements.editTaskName.value = task.title || "";
-  elements.editTaskDueDate.value = task.dueDate || "";
+  setDateInputIso(elements.editTaskDueDate, task.dueDate || null);
   elements.editTaskPriority.value = task.priority || "media";
   elements.editTaskFeedback.textContent = "";
   elements.editTaskFeedback.classList.remove("error");
@@ -1494,6 +1833,7 @@ function openEditTaskModal(taskId) {
 /// funcao closeEditTaskModal. ///
 function closeEditTaskModal() {
   activeEditTaskId = null;
+  closeDatePicker();
   if (!elements.editTaskModal) {
     return;
   }
@@ -1517,7 +1857,7 @@ function saveEditTaskModal() {
   }
 
   const nextName = elements.editTaskName.value.trim();
-  const nextDueDate = elements.editTaskDueDate.value || null;
+  const nextDueDate = getDateInputIso(elements.editTaskDueDate);
   const nextPriority = elements.editTaskPriority.value;
 
   if (!nextName) {
@@ -1849,6 +2189,16 @@ function onDocumentClick(event) {
 
   if (elements.notificationMenu && !elements.notificationMenu.contains(target)) {
     closeNotificationMenu();
+  }
+
+  if (
+    datePickerElement
+    && !datePickerElement.classList.contains("hidden")
+    && activeDatePickerInput
+    && !datePickerElement.contains(target)
+    && target !== activeDatePickerInput
+  ) {
+    closeDatePicker();
   }
 }
 

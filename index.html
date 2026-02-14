@@ -96,7 +96,16 @@
           </div>
           <div class="task-field">
             <label for="task-due-date">Data de entrega</label>
-            <input id="task-due-date" name="due-date" type="date" aria-label="Data final de entrega" />
+            <input
+              id="task-due-date"
+              name="due-date"
+              type="text"
+              class="custom-date-input"
+              placeholder="dd/mm/aaaa"
+              aria-label="Data final de entrega"
+              autocomplete="off"
+              readonly
+            />
           </div>
           <button type="submit" class="task-form-submit">Adicionar</button>
         </form>
@@ -264,7 +273,14 @@
       <input id="edit-task-name" type="text" maxlength="80" />
 
       <label for="edit-task-due-date">Data de entrega</label>
-      <input id="edit-task-due-date" type="date" />
+      <input
+        id="edit-task-due-date"
+        type="text"
+        class="custom-date-input"
+        placeholder="dd/mm/aaaa"
+        autocomplete="off"
+        readonly
+      />
 
       <label for="edit-task-priority">Prioridade</label>
       <select id="edit-task-priority">
