@@ -390,7 +390,8 @@ function renderUsersList() {
 
       info.className = "user-credentials";
       loginLabel.textContent = `Login: ${user.username}${user.role === "admin" ? " (Admin)" : ""}`;
-      passwordLabel.textContent = `Senha: ${user.password}`;
+      const passwordText = isRemoteUsersEnabled() ? "Senha: protegida" : `Senha: ${user.password}`;
+      passwordLabel.textContent = passwordText;
       metaLine.className = "user-meta";
       statusLabel.className = `user-status ${online ? "online" : "offline"}`;
       statusLabel.textContent = online ? "Online" : "Offline";
@@ -1856,7 +1857,7 @@ function mapApiUser(user) {
   return {
     id: user.id,
     username: user.username,
-    password: user.password_hash ?? user.password ?? "",
+    password: "",
     role: user.role,
     lastLoginAt: user.last_login_at ?? user.lastLoginAt ?? null,
   };
@@ -1881,3 +1882,5 @@ async function refreshUsersFromApi() {
     return false;
   }
 }
+
+
