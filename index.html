@@ -107,6 +107,13 @@
               readonly
             />
           </div>
+          <div class="task-field">
+            <label for="task-category">Categoria</label>
+            <select id="task-category" name="category" aria-label="Categoria da tarefa">
+              <option value="trabalho" selected>Trabalho</option>
+              <option value="pessoal">Pessoal</option>
+            </select>
+          </div>
           <button type="submit" class="task-form-submit">Adicionar</button>
         </form>
       </div>
@@ -130,6 +137,7 @@
       <section class="filters" aria-label="Filtros">
         <label for="search">Buscar</label>
         <input id="search" type="search" placeholder="Digite para filtrar tarefas" />
+        <button id="view-toggle" type="button" class="ghost view-toggle">Calendário</button>
 
         <label for="priority-filter">Prioridade</label>
         <select id="priority-filter">
@@ -139,10 +147,17 @@
           <option value="baixa">Baixa</option>
         </select>
 
+        <label for="category-filter">Categoria</label>
+        <select id="category-filter">
+          <option value="todas">Todas</option>
+          <option value="trabalho">Trabalho</option>
+          <option value="pessoal">Pessoal</option>
+        </select>
+
         <button id="clear-done" type="button" class="ghost">Limpar concluídas</button>
       </section>
 
-      <section class="board" aria-label="Quadro Kanban">
+      <section id="board-view" class="board" aria-label="Quadro Kanban">
         <article class="column" data-status="todo">
           <header>
             <h2>A Fazer</h2>
@@ -166,6 +181,23 @@
           </header>
           <div class="dropzone" data-dropzone="done" aria-label="Coluna Concluído"></div>
         </article>
+      </section>
+
+      <section id="calendar-view" class="calendar-view hidden" aria-label="Visualização em calendário">
+        <article class="calendar-panel">
+          <header class="calendar-header">
+            <button id="calendar-prev" type="button" class="ghost calendar-nav" aria-label="Mês anterior">◀</button>
+            <h2 id="calendar-title">Calendário</h2>
+            <button id="calendar-next" type="button" class="ghost calendar-nav" aria-label="Próximo mês">▶</button>
+          </header>
+          <div id="calendar-weekdays" class="calendar-weekdays"></div>
+          <div id="calendar-grid" class="calendar-grid"></div>
+        </article>
+
+        <aside class="calendar-sidebar" aria-label="Tarefas pendentes">
+          <h3>Pendentes por data</h3>
+          <ul id="calendar-pending-list" class="calendar-pending-list"></ul>
+        </aside>
       </section>
     </main>
   </section>
@@ -287,6 +319,12 @@
         <option value="baixa">Baixa</option>
         <option value="media">Média</option>
         <option value="alta">Alta</option>
+      </select>
+
+      <label for="edit-task-category">Categoria</label>
+      <select id="edit-task-category">
+        <option value="trabalho">Trabalho</option>
+        <option value="pessoal">Pessoal</option>
       </select>
 
       <p id="edit-task-feedback" class="feedback" role="status" aria-live="polite"></p>

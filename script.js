@@ -7,6 +7,7 @@ const DISMISSED_USER_EVENTS_KEY = "private-kanban-dismissed-user-events-v1";
 const PRESENCE_KEY = "private-kanban-presence-v1";
 const API_TIMEOUT_MS = 10000;
 const STATUSES = ["todo", "doing", "done"];
+const TASK_CATEGORIES = ["trabalho", "pessoal"];
 const PRESENCE_HEARTBEAT_MS = 10000;
 const ONLINE_WINDOW_MS = 30000;
 
@@ -70,15 +71,27 @@ const elements = {
   editTaskName: document.querySelector("#edit-task-name"),
   editTaskDueDate: document.querySelector("#edit-task-due-date"),
   editTaskPriority: document.querySelector("#edit-task-priority"),
+  editTaskCategory: document.querySelector("#edit-task-category"),
   editTaskFeedback: document.querySelector("#edit-task-feedback"),
 
   taskForm: document.querySelector("#task-form"),
   titleInput: document.querySelector("#task-title"),
   priorityInput: document.querySelector("#task-priority"),
   dueDateInput: document.querySelector("#task-due-date"),
+  categoryInput: document.querySelector("#task-category"),
   searchInput: document.querySelector("#search"),
+  viewToggle: document.querySelector("#view-toggle"),
   priorityFilter: document.querySelector("#priority-filter"),
+  categoryFilter: document.querySelector("#category-filter"),
   clearDoneButton: document.querySelector("#clear-done"),
+  boardView: document.querySelector("#board-view"),
+  calendarView: document.querySelector("#calendar-view"),
+  calendarPrev: document.querySelector("#calendar-prev"),
+  calendarNext: document.querySelector("#calendar-next"),
+  calendarTitle: document.querySelector("#calendar-title"),
+  calendarWeekdays: document.querySelector("#calendar-weekdays"),
+  calendarGrid: document.querySelector("#calendar-grid"),
+  calendarPendingList: document.querySelector("#calendar-pending-list"),
   template: document.querySelector("#task-template"),
   dropzones: [...document.querySelectorAll("[data-dropzone]")],
   counters: [...document.querySelectorAll("[data-counter]")],
@@ -102,6 +115,10 @@ let datePickerElement = null;
 let activeDatePickerInput = null;
 let datePickerYear = 0;
 let datePickerMonth = 0;
+let currentViewMode = "board";
+let calendarYear = 0;
+let calendarMonth = 0;
+let selectedCalendarDateIso = null;
 
 boot();
 
@@ -111,6 +128,7 @@ async function boot() {
   initializeTheme();
   initializePasswordToggles();
   initializeCustomDatePicker();
+  initializeCalendarState();
   bindEvents();
   await refreshUsersFromApi();
 
@@ -168,6 +186,26 @@ function bindEvents() {
   elements.taskForm.addEventListener("submit", onTaskSubmit);
   elements.searchInput.addEventListener("input", render);
   elements.priorityFilter.addEventListener("change", render);
+  elements.categoryFilter?.addEventListener("change", render);
+  elements.viewToggle?.addEventListener("click", toggleViewMode);
+  elements.calendarPrev?.addEventListener("click", () => {
+    calendarMonth -= 1;
+    if (calendarMonth < 0) {
+      calendarMonth = 11;
+      calendarYear -= 1;
+    }
+    selectedCalendarDateIso = null;
+    render();
+  });
+  elements.calendarNext?.addEventListener("click", () => {
+    calendarMonth += 1;
+    if (calendarMonth > 11) {
+      calendarMonth = 0;
+      calendarYear += 1;
+    }
+    selectedCalendarDateIso = null;
+    render();
+  });
 
   elements.clearDoneButton.addEventListener("click", () => {
     tasks = tasks.filter((task) => task.status !== "done");
@@ -245,6 +283,8 @@ async function onLoginSubmit(event) {
 
 /// funcao startSession. ///
 function startSession(user) {
+  currentViewMode = "board";
+  initializeCalendarState();
   currentUser = user;
   localStorage.setItem(SESSION_KEY, user.id);
   if (!isRemoteUsersEnabled()) {
@@ -295,6 +335,8 @@ function logout() {
   activeTaskId = null;
   dismissedNotifications = new Set();
   currentNotifications = [];
+  currentViewMode = "board";
+  initializeCalendarState();
   localStorage.removeItem(SESSION_KEY);
   closeProfileMenu();
   closeNotificationMenu();
@@ -482,6 +524,7 @@ function onTaskSubmit(event) {
   const title = elements.titleInput.value.trim();
   const priority = elements.priorityInput.value;
   const dueDate = getDateInputIso(elements.dueDateInput);
+  const category = normalizeTaskCategory(elements.categoryInput?.value);
   if (!title) {
     return;
   }
@@ -490,6 +533,7 @@ function onTaskSubmit(event) {
     id: crypto.randomUUID(),
     title,
     priority,
+    category,
     dueDate,
     details: "",
     images: [],
@@ -498,6 +542,9 @@ function onTaskSubmit(event) {
   });
 
   elements.titleInput.value = "";
+  if (elements.categoryInput) {
+    elements.categoryInput.value = "trabalho";
+  }
   setDateInputIso(elements.dueDateInput, null);
   persistTasks();
   render();
@@ -509,19 +556,24 @@ function render() {
 
   clearTaskColumns();
 
-  const visibleTasks = tasks.filter((task) => matchesFilters(task, filters));
+  const visibleTasks = tasks
+    .filter((task) => matchesFilters(task, filters))
+    .sort(compareTasksByDueDate);
 
-  STATUSES.forEach((status) => {
-    const zone = document.querySelector(`[data-dropzone="${status}"]`);
-    if (!zone) {
-      return;
-    }
+  if (currentViewMode === "calendar") {
+    renderCalendarView(visibleTasks);
+  } else {
+    STATUSES.forEach((status) => {
+      const zone = document.querySelector(`[data-dropzone="${status}"]`);
+      if (!zone) {
+        return;
+      }
 
-    visibleTasks
-      .filter((task) => task.status === status)
-      .sort(compareTasksByDueDate)
-      .forEach((task) => zone.appendChild(buildTaskElement(task)));
-  });
+      visibleTasks
+        .filter((task) => task.status === status)
+        .forEach((task) => zone.appendChild(buildTaskElement(task)));
+    });
+  }
 
   updateCounters();
   updateNotificationCenter();
@@ -544,14 +596,178 @@ function getFilters() {
   return {
     text: elements.searchInput.value.trim().toLowerCase(),
     priority: elements.priorityFilter.value,
+    category: elements.categoryFilter?.value || "todas",
   };
+}
+
+/// funcao initializeCalendarState. ///
+function initializeCalendarState() {
+  const today = new Date();
+  calendarYear = today.getFullYear();
+  calendarMonth = today.getMonth();
+  selectedCalendarDateIso = null;
+  syncViewModeUi();
+}
+
+/// funcao toggleViewMode. ///
+function toggleViewMode() {
+  currentViewMode = currentViewMode === "board" ? "calendar" : "board";
+  if (currentViewMode === "calendar") {
+    selectedCalendarDateIso = null;
+  }
+  syncViewModeUi();
+  render();
+}
+
+/// funcao syncViewModeUi. ///
+function syncViewModeUi() {
+  const isCalendar = currentViewMode === "calendar";
+  elements.boardView?.classList.toggle("hidden", isCalendar);
+  elements.calendarView?.classList.toggle("hidden", !isCalendar);
+  if (elements.viewToggle) {
+    elements.viewToggle.textContent = isCalendar ? "Quadro" : "Calendário";
+  }
+}
+
+/// funcao renderCalendarView. ///
+function renderCalendarView(visibleTasks) {
+  if (!elements.calendarGrid || !elements.calendarWeekdays || !elements.calendarTitle) {
+    return;
+  }
+
+  const monthDate = new Date(calendarYear, calendarMonth, 1);
+  elements.calendarTitle.textContent = monthDate.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const weekdays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  elements.calendarWeekdays.innerHTML = weekdays
+    .map((weekday) => `<span>${weekday}</span>`)
+    .join("");
+
+  const dueMap = groupTasksByDueDate(visibleTasks);
+  elements.calendarGrid.innerHTML = "";
+
+  const firstDayIndex = new Date(calendarYear, calendarMonth, 1).getDay();
+  const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const daysInPrevMonth = new Date(calendarYear, calendarMonth, 0).getDate();
+
+  for (let i = 0; i < firstDayIndex; i += 1) {
+    const day = daysInPrevMonth - firstDayIndex + i + 1;
+    const iso = toIsoDate(new Date(calendarYear, calendarMonth - 1, day));
+    elements.calendarGrid.appendChild(buildCalendarCell({ day, iso, muted: true, dueMap }));
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = toIsoDate(new Date(calendarYear, calendarMonth, day));
+    elements.calendarGrid.appendChild(buildCalendarCell({ day, iso, muted: false, dueMap }));
+  }
+
+  const totalCells = elements.calendarGrid.children.length;
+  const trailingCells = (7 - (totalCells % 7)) % 7;
+  for (let i = 1; i <= trailingCells; i += 1) {
+    const iso = toIsoDate(new Date(calendarYear, calendarMonth + 1, i));
+    elements.calendarGrid.appendChild(buildCalendarCell({ day: i, iso, muted: true, dueMap }));
+  }
+
+  renderCalendarPendingList(tasks);
+}
+
+/// funcao buildCalendarCell. ///
+function buildCalendarCell({ day, iso, muted, dueMap }) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `calendar-day${muted ? " muted" : ""}`;
+  button.dataset.date = iso;
+
+  const todayIso = toIsoDate(new Date());
+  if (iso === todayIso) {
+    button.classList.add("today");
+  }
+  if (selectedCalendarDateIso && selectedCalendarDateIso === iso) {
+    button.classList.add("selected");
+  }
+
+  const tasksInDay = dueMap.get(iso) || [];
+  if (tasksInDay.length) {
+    button.classList.add("has-task");
+  }
+
+  const count = tasksInDay.length ? `<span class="calendar-day-count">${tasksInDay.length}</span>` : "";
+  button.innerHTML = `<span class="calendar-day-number">${day}</span>${count}`;
+  button.addEventListener("click", () => {
+    selectedCalendarDateIso = selectedCalendarDateIso === iso ? null : iso;
+    render();
+  });
+
+  return button;
+}
+
+/// funcao groupTasksByDueDate. ///
+function groupTasksByDueDate(taskList) {
+  const map = new Map();
+  taskList.forEach((task) => {
+    if (!task?.dueDate) {
+      return;
+    }
+    const current = map.get(task.dueDate) || [];
+    current.push(task);
+    map.set(task.dueDate, current);
+  });
+  return map;
+}
+
+/// funcao renderCalendarPendingList. ///
+function renderCalendarPendingList(taskList) {
+  if (!elements.calendarPendingList) {
+    return;
+  }
+
+  const pending = taskList
+    .filter((task) => task.status !== "done")
+    .sort(compareTasksByDueDate);
+  const scoped = selectedCalendarDateIso
+    ? pending.filter((task) => task.dueDate === selectedCalendarDateIso)
+    : pending;
+
+  elements.calendarPendingList.innerHTML = "";
+  if (!scoped.length) {
+    const empty = document.createElement("li");
+    empty.className = "calendar-pending-empty";
+    empty.textContent = selectedCalendarDateIso
+      ? "Nenhuma tarefa pendente nesta data."
+      : "Nenhuma tarefa pendente.";
+    elements.calendarPendingList.appendChild(empty);
+    return;
+  }
+
+  scoped.forEach((task) => {
+    const item = document.createElement("li");
+    item.className = "calendar-pending-item";
+    const dueText = formatDueDate(task.dueDate) || "Sem data";
+    const categoryText = getTaskCategoryLabel(task.category);
+    item.innerHTML = `
+      <strong>${escapeHtml(task.title)}</strong>
+      <span>${dueText} • ${categoryText} • ${getPriorityLabel(task.priority)}</span>
+    `;
+    item.addEventListener("click", () => {
+      currentViewMode = "board";
+      syncViewModeUi();
+      openTaskModal(task.id);
+      render();
+    });
+    elements.calendarPendingList.appendChild(item);
+  });
 }
 
 /// funcao matchesFilters. ///
 function matchesFilters(task, filters) {
   const matchesText = task.title.toLowerCase().includes(filters.text);
   const matchesPriority = filters.priority === "todas" || task.priority === filters.priority;
-  return matchesText && matchesPriority;
+  const taskCategory = normalizeTaskCategory(task.category);
+  const matchesCategory = filters.category === "todas" || taskCategory === filters.category;
+  return matchesText && matchesPriority && matchesCategory;
 }
 
 /// funcao buildTaskElement. ///
@@ -568,7 +784,7 @@ function buildTaskElement(task) {
   card.dataset.id = task.id;
   card.classList.add(`task-status-${task.status}`);
   const dueState = getDueState(task);
-  if (dueState !== "normal") {
+  if (task.status !== "done" && dueState !== "normal") {
     card.classList.add("task-status-alert");
   }
   title.textContent = task.title;
@@ -587,12 +803,23 @@ function buildTaskElement(task) {
     ? `Criada em ${dateLabel} | Entrega: ${dueDateLabel}`
     : `Criada em ${dateLabel}`;
   const dueBadgeLabel = getDueBadgeLabel(task);
-  if (dueBadgeLabel) {
+  if (task.status === "done") {
+    meta.insertAdjacentHTML(
+      "beforeend",
+      ` <span class="due-badge due-badge-done">Concluído</span>`
+    );
+  } else if (dueBadgeLabel) {
     meta.insertAdjacentHTML(
       "beforeend",
       ` <span class="due-badge ${dueBadgeLabel === "Em atraso" ? "due-badge-overdue" : "due-badge-soon"}">${dueBadgeLabel}</span>`
     );
   }
+
+  const categoryLabel = getTaskCategoryLabel(task.category);
+  meta.insertAdjacentHTML(
+    "beforeend",
+    ` <span class="category-badge category-${normalizeTaskCategory(task.category)}">${categoryLabel}</span>`
+  );
   meta.insertAdjacentHTML(
     "beforeend",
     ` <span class="priority-badge priority-${task.priority}">${capitalize(task.priority)}</span>`
@@ -1079,6 +1306,7 @@ function loadTasksByUser(userId) {
       ))
       .map((task) => ({
         ...task,
+        category: normalizeTaskCategory(task.category),
         details: typeof task.details === "string" ? task.details : "",
         images: Array.isArray(task.images) ? task.images.filter((image) => typeof image === "string") : [],
       }));
@@ -1446,6 +1674,38 @@ function isValidCredential(value) {
 /// funcao capitalize. ///
 function capitalize(value) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+/// funcao normalizeTaskCategory. ///
+function normalizeTaskCategory(value) {
+  const category = String(value || "").toLowerCase();
+  return TASK_CATEGORIES.includes(category) ? category : "trabalho";
+}
+
+/// funcao getTaskCategoryLabel. ///
+function getTaskCategoryLabel(value) {
+  return normalizeTaskCategory(value) === "pessoal" ? "Pessoal" : "Trabalho";
+}
+
+/// funcao getPriorityLabel. ///
+function getPriorityLabel(value) {
+  if (value === "alta") {
+    return "Prioridade alta";
+  }
+  if (value === "baixa") {
+    return "Prioridade baixa";
+  }
+  return "Prioridade média";
+}
+
+/// funcao escapeHtml. ///
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 /// funcao formatDueDate. ///
@@ -1898,6 +2158,9 @@ function openEditTaskModal(taskId) {
   elements.editTaskName.value = task.title || "";
   setDateInputIso(elements.editTaskDueDate, task.dueDate || null);
   elements.editTaskPriority.value = task.priority || "media";
+  if (elements.editTaskCategory) {
+    elements.editTaskCategory.value = normalizeTaskCategory(task.category);
+  }
   elements.editTaskFeedback.textContent = "";
   elements.editTaskFeedback.classList.remove("error");
   elements.editTaskModal.classList.remove("hidden");
@@ -1933,6 +2196,7 @@ function saveEditTaskModal() {
   const nextName = elements.editTaskName.value.trim();
   const nextDueDate = getDateInputIso(elements.editTaskDueDate);
   const nextPriority = elements.editTaskPriority.value;
+  const nextCategory = normalizeTaskCategory(elements.editTaskCategory?.value);
 
   if (!nextName) {
     setEditTaskFeedback("Informe o nome da tarefa.", true);
@@ -1947,6 +2211,7 @@ function saveEditTaskModal() {
   task.title = nextName;
   task.dueDate = nextDueDate;
   task.priority = nextPriority;
+  task.category = nextCategory;
   persistTasks();
   render();
   closeEditTaskModal();
@@ -2357,6 +2622,7 @@ async function refreshTasksFromApi(userId = currentUser?.id) {
         id: task.id,
         title: task.title,
         priority: task.priority,
+        category: normalizeTaskCategory(task.category),
         dueDate: task.due_date ?? null,
         details: typeof task.details === "string" ? task.details : "",
         images: Array.isArray(task.images) ? task.images.filter((image) => typeof image === "string") : [],

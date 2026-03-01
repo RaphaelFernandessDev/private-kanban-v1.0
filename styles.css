@@ -551,6 +551,24 @@ body.theme-dark .due-badge-overdue {
   border-color: #ff7a73;
 }
 
+body.theme-dark .due-badge-done {
+  background: #224334;
+  color: #b0f0cc;
+  border-color: #3e8862;
+}
+
+body.theme-dark .category-trabalho {
+  background: #1f3a52;
+  color: #b7dcff;
+  border-color: #4d86b5;
+}
+
+body.theme-dark .category-pessoal {
+  background: #33254d;
+  color: #d8c0ff;
+  border-color: #8d65cb;
+}
+
 body.theme-dark .task-actions button {
   background: #1e2a31;
 }
@@ -562,7 +580,7 @@ body.theme-dark .task-actions button {
 
 .task-form {
   display: grid;
-  grid-template-columns: minmax(220px, 2fr) 1fr 1fr auto;
+  grid-template-columns: minmax(220px, 2fr) 1fr 1fr 1fr auto;
   gap: 0.5rem;
 }
 
@@ -595,6 +613,16 @@ body.theme-dark .task-actions button {
 
 .ghost:hover {
   background: #eaf2ee;
+}
+
+body.theme-dark .ghost {
+  background: #1f2a31;
+  border-color: #3a4b56;
+  color: #dce8ed;
+}
+
+body.theme-dark .ghost:hover {
+  background: #26343d;
 }
 
 main {
@@ -707,7 +735,7 @@ main {
   border-radius: 16px;
   padding: 0.76rem;
   display: grid;
-  grid-template-columns: auto 1fr auto auto auto;
+  grid-template-columns: auto minmax(220px, 1fr) auto auto auto auto auto auto;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
@@ -719,11 +747,164 @@ main {
   font-weight: 500;
 }
 
+.view-toggle {
+  min-width: 110px;
+}
+
 /* Estrutura do quadro Kanban */
 .board {
   display: grid;
   gap: 0.9rem;
   grid-template-columns: repeat(3, minmax(260px, 1fr));
+}
+
+.calendar-view {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 0.9rem;
+}
+
+.calendar-panel,
+.calendar-sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 18px;
+  padding: 0.85rem;
+}
+
+.calendar-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 40px;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+
+.calendar-header h2 {
+  margin: 0;
+  text-align: center;
+  text-transform: capitalize;
+  font-size: 1rem;
+}
+
+.calendar-nav {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+}
+
+.calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.calendar-weekdays span {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.34rem;
+}
+
+.calendar-day {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-height: 78px;
+  background: var(--surface-soft);
+  color: var(--text);
+  text-align: left;
+  padding: 0.35rem 0.42rem;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-content: start;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.calendar-day:hover {
+  background: color-mix(in srgb, var(--surface-soft) 70%, #d6ebe6 30%);
+}
+
+.calendar-day.muted {
+  opacity: 0.58;
+}
+
+.calendar-day.today {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border) 55%);
+}
+
+.calendar-day.selected {
+  box-shadow: var(--ring);
+}
+
+.calendar-day.has-task {
+  border-color: color-mix(in srgb, var(--primary) 38%, var(--border) 62%);
+}
+
+.calendar-day-number {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.calendar-day-count {
+  font-size: 0.72rem;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  padding: 0.1rem 0.4rem;
+  align-self: start;
+}
+
+.calendar-sidebar h3 {
+  margin: 0 0 0.65rem;
+  font-size: 1rem;
+}
+
+.calendar-pending-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 520px;
+  overflow: auto;
+}
+
+.calendar-pending-item {
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  padding: 0.5rem 0.6rem;
+  background: var(--surface-soft);
+  display: grid;
+  gap: 0.15rem;
+  cursor: pointer;
+}
+
+.calendar-pending-item strong {
+  font-size: 0.9rem;
+}
+
+.calendar-pending-item span {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.calendar-pending-item:hover {
+  background: color-mix(in srgb, var(--surface-soft) 68%, #d6ebe6 32%);
+}
+
+.calendar-pending-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+  padding: 0.4rem 0.2rem;
 }
 
 .column {
@@ -884,6 +1065,35 @@ main {
   background: #ffe2e0;
   color: #b42318;
   border: 1px solid #ff9f98;
+}
+
+.due-badge-done {
+  background: #dff7ed;
+  color: #067647;
+  border: 1px solid #7fce9c;
+}
+
+.category-badge {
+  display: inline-block;
+  margin-top: 0.24rem;
+  margin-right: 0.35rem;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  padding: 0.14rem 0.5rem;
+  width: fit-content;
+  font-weight: 700;
+}
+
+.category-trabalho {
+  background: #dff1ff;
+  color: #165c98;
+  border: 1px solid #8ec2ea;
+}
+
+.category-pessoal {
+  background: #f0e8ff;
+  color: #5e35b1;
+  border: 1px solid #c4a8f5;
 }
 
 .priority-alta {
@@ -1486,15 +1696,19 @@ body.theme-dark .edit-task-backdrop {
 
 @media (max-width: 1080px) {
   .task-form {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .task-form button {
-    grid-column: span 2;
+    grid-column: span 3;
   }
 
   .board {
     grid-template-columns: repeat(2, minmax(250px, 1fr));
+  }
+
+  .calendar-view {
+    grid-template-columns: 1fr;
   }
 }
 
