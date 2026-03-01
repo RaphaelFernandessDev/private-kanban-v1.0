@@ -132,7 +132,7 @@ async function boot() {
   bindEvents();
   await refreshUsersFromApi();
 
-  const sessionUserId = localStorage.getItem(SESSION_KEY);
+  const sessionUserId = sessionStorage.getItem(SESSION_KEY);
   if (sessionUserId) {
     const sessionUser = users.find((user) => user.id === sessionUserId);
     if (sessionUser) {
@@ -286,7 +286,7 @@ function startSession(user) {
   currentViewMode = "board";
   initializeCalendarState();
   currentUser = user;
-  localStorage.setItem(SESSION_KEY, user.id);
+  sessionStorage.setItem(SESSION_KEY, user.id);
   if (!isRemoteUsersEnabled()) {
     registerUserLastAccess(user.id);
     users = loadUsers();
@@ -337,6 +337,7 @@ function logout() {
   currentNotifications = [];
   currentViewMode = "board";
   initializeCalendarState();
+  sessionStorage.removeItem(SESSION_KEY);
   localStorage.removeItem(SESSION_KEY);
   closeProfileMenu();
   closeNotificationMenu();
@@ -2655,3 +2656,5 @@ async function refreshUsersFromApi() {
     return false;
   }
 }
+
+
